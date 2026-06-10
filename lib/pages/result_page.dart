@@ -19,6 +19,16 @@ class ResultPage extends StatelessWidget {
     );
   }
 
+  /// Iniciais do nome para o avatar enquanto não há foto.
+  String _iniciais(String nome) {
+    final partes = nome.trim().split(' ');
+    if (partes.length >= 2) {
+      return (partes.first[0] + partes.last[0]).toUpperCase();
+    } else {
+      return partes.first[0].toUpperCase();
+    }
+  }
+
   void _mostrarMensagem(BuildContext context, String texto, Color cor) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -78,12 +88,25 @@ class ResultPage extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          const Icon(
-                            Icons.emoji_events_rounded,
-                            size: 40,
-                            color: Color(0xFF3C096C),
+                          // Foto do professor (ou iniciais enquanto não há foto)
+                          CircleAvatar(
+                            radius: 36,
+                            backgroundColor: const Color(0xFF3C096C),
+                            backgroundImage: resultado.foto != null
+                                ? AssetImage(resultado.foto!)
+                                : null,
+                            child: resultado.foto == null
+                                ? Text(
+                                    _iniciais(resultado.nome),
+                                    style: const TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.gold,
+                                    ),
+                                  )
+                                : null,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
                           Text(
                             resultado.nome,
                             textAlign: TextAlign.center,

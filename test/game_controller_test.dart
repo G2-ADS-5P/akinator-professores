@@ -8,7 +8,7 @@ void main() {
     test('inicia com pontuações zeradas e pergunta inicial definida', () {
       final controller = GameController();
 
-      expect(controller.perguntaAtual.id, 'area_pratica');
+      expect(controller.perguntaAtual.id, 'programacao');
       expect(controller.quantidadePerguntasRespondidas, 0);
       expect(controller.jogoFinalizado, isFalse);
       for (final professor in controller.professores) {
@@ -16,11 +16,12 @@ void main() {
       }
     });
 
-    test('usa apenas candidatos fictícios no MVP', () {
+    test('possui pelo menos 8 professores cadastrados, com ids únicos', () {
       final controller = GameController();
       final ids = controller.professores.map((p) => p.id).toList();
 
-      expect(ids, ['candidato_1', 'candidato_2', 'candidato_3']);
+      expect(ids.length, greaterThanOrEqualTo(8));
+      expect(ids.toSet().length, ids.length);
     });
   });
 
@@ -56,11 +57,31 @@ void main() {
 
     test('alterarPontuacao soma pontos apenas nos ids informados', () {
       final controller = GameController();
-      controller.alterarPontuacao(['candidato_2'], 3);
+      controller.alterarPontuacao(['prof_alan'], 3);
 
-      expect(controller.professores[0].pontos, 0);
-      expect(controller.professores[1].pontos, 3);
-      expect(controller.professores[2].pontos, 0);
+      for (final professor in controller.professores) {
+        if (professor.id == 'prof_alan') {
+          expect(professor.pontos, 3);
+        } else {
+          expect(professor.pontos, 0);
+        }
+      }
+    });
+
+    test('quem programa sobe e quem não programa desce ao responder Sim', () {
+      final controller = GameController();
+      // Pergunta inicial: programação.
+      controller.responder(RespostaEnum.sim);
+
+      final guilherme = controller.professores.firstWhere(
+        (p) => p.id == 'prof_guilherme',
+      );
+      final marcel = controller.professores.firstWhere(
+        (p) => p.id == 'prof_marcel',
+      );
+
+      expect(guilherme.pontos, greaterThan(0));
+      expect(marcel.pontos, lessThan(0));
     });
   });
 
@@ -101,10 +122,19 @@ void main() {
     });
 
     test('nenhuma pergunta cita nomes de professores', () {
+      final controller = GameController();
       for (final pergunta in PerguntasData.todas) {
-        expect(pergunta.texto.contains('Professor 1'), isFalse);
-        expect(pergunta.texto.contains('Professor 2'), isFalse);
-        expect(pergunta.texto.contains('Professor 3'), isFalse);
+        for (final professor in controller.professores) {
+          // Verifica nome completo e cada parte do nome.
+          for (final parte in professor.nome.split(' ')) {
+            expect(
+              pergunta.texto.toLowerCase().contains(parte.toLowerCase()),
+              isFalse,
+              reason:
+                  'Pergunta "${pergunta.id}" cita o professor ${professor.nome}',
+            );
+          }
+        }
       }
     });
   });
@@ -112,28 +142,29 @@ void main() {
   group('GameController - resultado', () {
     test('calcularResultado retorna o candidato com mais pontos', () {
       final controller = GameController();
-      controller.alterarPontuacao(['candidato_3'], 10);
+      controller.alterarPontuacao(['prof_leticia'], 10);
 
-      expect(controller.calcularResultado().id, 'candidato_3');
+      expect(controller.calcularResultado().id, 'prof_leticia');
     });
 
     test('calcularTopTres retorna três candidatos ordenados', () {
       final controller = GameController();
-      controller.alterarPontuacao(['candidato_2'], 5);
-      controller.alterarPontuacao(['candidato_3'], 2);
+      controller.alterarPontuacao(['prof_jhoni'], 5);
+      controller.alterarPontuacao(['prof_marcos'], 2);
 
       final top = controller.calcularTopTres();
       expect(top.length, 3);
-      expect(top[0].id, 'candidato_2');
-      expect(top[1].id, 'candidato_3');
-      expect(top[2].id, 'candidato_1');
+      expect(top[0].id, 'prof_jhoni');
+      expect(top[1].id, 'prof_marcos');
+      expect(top[0].pontos, greaterThanOrEqualTo(top[1].pontos));
+      expect(top[1].pontos, greaterThanOrEqualTo(top[2].pontos));
     });
 
     test('confiança fica sempre entre 0 e 100', () {
       final controller = GameController();
       expect(controller.calcularConfianca(), inInclusiveRange(0, 100));
 
-      controller.alterarPontuacao(['candidato_1'], 100);
+      controller.alterarPontuacao(['prof_hiago'], 100);
       expect(controller.calcularConfianca(), 100);
     });
 
@@ -141,11 +172,40 @@ void main() {
       final controller = GameController();
       final empatado = controller.calcularConfianca();
 
-      controller.alterarPontuacao(['candidato_1'], 2);
+      controller.alterarPontuacao(['prof_hiago'], 2);
       final comVantagem = controller.calcularConfianca();
 
       expect(comVantagem, greaterThan(empatado));
     });
+
+    test('cenário guiado: respostas sobre mobile levam ao professor certo', () {
+      final controller = GameController();
+      // Programação? Sim → web
+      controller.responder(RespostaEnum.sim);
+      // Web? Não → mobile
+      controller.responder(RespostaEnum.nao);
+      // Mobile? Sim → visual alternativo
+      controller.responder(RespostaEnum.sim);
+      // Visual marcante (cabelo colorido/tatuagens)? Sim
+      controller.responder(RespostaEnum.sim);
+
+      expect(controller.calcularResultado().id, 'prof_speck');
+    });
+
+    test(
+      'cenário guiado: respostas sobre ágil/testes levam ao professor certo',
+      () {
+        final controller = GameController();
+        // Programação? Não → ágil
+        controller.responder(RespostaEnum.nao);
+        // Ágil (Scrum/Kanban)? Sim → testes
+        controller.responder(RespostaEnum.sim);
+        // Testes de software? Sim
+        controller.responder(RespostaEnum.sim);
+
+        expect(controller.calcularResultado().id, 'prof_andre');
+      },
+    );
   });
 
   group('GameController - reiniciar', () {
@@ -159,7 +219,7 @@ void main() {
       expect(controller.quantidadePerguntasRespondidas, 0);
       expect(controller.perguntasRespondidas, isEmpty);
       expect(controller.jogoFinalizado, isFalse);
-      expect(controller.perguntaAtual.id, 'area_pratica');
+      expect(controller.perguntaAtual.id, 'programacao');
       for (final professor in controller.professores) {
         expect(professor.pontos, 0);
       }

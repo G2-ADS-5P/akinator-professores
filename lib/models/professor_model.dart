@@ -1,22 +1,34 @@
-/// Representa um candidato (professor) do jogo.
+/// Representa um professor candidato do jogo.
 ///
-/// Durante o MVP os candidatos são fictícios (Professor 1, 2 e 3).
-/// Os dados reais serão cadastrados somente na etapa final do projeto.
+/// O campo [foto] é opcional: enquanto a foto não for fornecida,
+/// a tela de resultado exibe um avatar com as iniciais do nome.
 class ProfessorModel {
   final String id;
   final String nome;
+  final String? foto;
   double pontos;
 
-  ProfessorModel({required this.id, required this.nome, this.pontos = 0});
+  ProfessorModel({
+    required this.id,
+    required this.nome,
+    this.foto,
+    this.pontos = 0,
+  });
 
   void resetarPontos() {
     pontos = 0;
   }
 
-  ProfessorModel copyWith({String? id, String? nome, double? pontos}) {
+  ProfessorModel copyWith({
+    String? id,
+    String? nome,
+    String? foto,
+    double? pontos,
+  }) {
     return ProfessorModel(
       id: id ?? this.id,
       nome: nome ?? this.nome,
+      foto: foto ?? this.foto,
       pontos: pontos ?? this.pontos,
     );
   }

@@ -1,32 +1,37 @@
 import '../models/pergunta_model.dart';
 
-/// Banco de perguntas neutras do jogo.
+/// Banco de perguntas neutras do jogo, criadas a partir das
+/// informações oficiais dos professores.
 ///
-/// Regras seguidas por todas as perguntas:
+/// Regras éticas seguidas por todas as perguntas:
 /// - nunca citam nomes de professores;
-/// - são respeitosas e observáveis;
-/// - tratam apenas de metodologia, recursos didáticos,
-///   áreas de conhecimento ou características neutras.
+/// - são respeitosas, neutras e observáveis;
+/// - tratam apenas de áreas de conhecimento, metodologia,
+///   recursos didáticos ou características neutras (óculos,
+///   estilo de roupa);
+/// - nada sobre peso, altura, corpo, idade ou personalidade.
 class PerguntasData {
-  static const areaPratica = PerguntaModel(
-    id: 'area_pratica',
-    texto:
-        'Esse professor costuma usar muitos exemplos práticos durante a aula?',
-    categoria: 'metodologia',
-  );
+  // ----------------------- Áreas técnicas -----------------------
 
   static const programacao = PerguntaModel(
     id: 'programacao',
     texto:
-        'Esse professor costuma trabalhar com programação ou desenvolvimento de sistemas?',
+        'Esse professor costuma trabalhar com programação ou desenvolvimento de software?',
     categoria: 'area',
   );
 
-  static const codigoPratico = PerguntaModel(
-    id: 'codigo_pratico',
+  static const web = PerguntaModel(
+    id: 'web',
     texto:
-        'Esse professor costuma demonstrar código, comandos ou sistemas na prática?',
-    categoria: 'pratica',
+        'Esse professor costuma trabalhar com desenvolvimento de sites ou aplicações web?',
+    categoria: 'area',
+  );
+
+  static const javascript = PerguntaModel(
+    id: 'javascript',
+    texto:
+        'Esse professor costuma trabalhar com JavaScript, UX/UI ou interfaces dinâmicas?',
+    categoria: 'area',
   );
 
   static const bancoDados = PerguntaModel(
@@ -35,102 +40,138 @@ class PerguntasData {
     categoria: 'area',
   );
 
-  static const laboratorio = PerguntaModel(
-    id: 'laboratorio',
-    texto: 'Esse professor costuma propor atividades em laboratório?',
-    categoria: 'metodologia',
-  );
-
-  static const slides = PerguntaModel(
-    id: 'slides',
-    texto: 'Esse professor costuma usar slides com frequência?',
-    categoria: 'recurso',
-  );
-
-  static const quadro = PerguntaModel(
-    id: 'quadro',
-    texto: 'Esse professor costuma escrever bastante no quadro?',
-    categoria: 'recurso',
-  );
-
-  static const mercado = PerguntaModel(
-    id: 'mercado',
+  static const mobile = PerguntaModel(
+    id: 'mobile',
     texto:
-        'Esse professor costuma relacionar o conteúdo com o mercado de trabalho?',
-    categoria: 'metodologia',
-  );
-
-  static const projetos = PerguntaModel(
-    id: 'projetos',
-    texto:
-        'Esse professor costuma trabalhar com projetos ou entregas práticas?',
-    categoria: 'metodologia',
-  );
-
-  static const organizacao = PerguntaModel(
-    id: 'organizacao',
-    texto:
-        'Esse professor costuma cobrar organização nos trabalhos e atividades?',
-    categoria: 'metodologia',
-  );
-
-  static const diagramas = PerguntaModel(
-    id: 'diagramas',
-    texto:
-        'Esse professor costuma usar diagramas ou modelagens para explicar o conteúdo?',
-    categoria: 'recurso',
-  );
-
-  static const passoAPasso = PerguntaModel(
-    id: 'passo_a_passo',
-    texto: 'Esse professor costuma explicar o conteúdo passo a passo?',
-    categoria: 'metodologia',
-  );
-
-  static const exercicios = PerguntaModel(
-    id: 'exercicios',
-    texto: 'Esse professor costuma resolver exercícios junto com a turma?',
-    categoria: 'metodologia',
-  );
-
-  static const gestao = PerguntaModel(
-    id: 'gestao',
-    texto:
-        'Esse professor costuma abordar temas de gestão, análise ou planejamento de sistemas?',
+        'Esse professor costuma trabalhar com desenvolvimento de aplicativos mobile?',
     categoria: 'area',
   );
 
-  static const ferramentas = PerguntaModel(
-    id: 'ferramentas',
-    texto:
-        'Esse professor costuma usar ferramentas como IDE, terminal ou Git durante a aula?',
-    categoria: 'recurso',
+  static const cCpp = PerguntaModel(
+    id: 'c_cpp',
+    texto: 'Esse professor costuma ensinar linguagens como C ou C++?',
+    categoria: 'area',
   );
 
-  static const trabalhoGrupo = PerguntaModel(
-    id: 'trabalho_grupo',
-    texto: 'Esse professor costuma propor atividades em grupo?',
+  static const pooUml = PerguntaModel(
+    id: 'poo_uml',
+    texto:
+        'Esse professor costuma trabalhar com orientação a objetos (POO) ou diagramas UML?',
+    categoria: 'area',
+  );
+
+  static const ia = PerguntaModel(
+    id: 'ia',
+    texto:
+        'Esse professor costuma falar sobre inteligência artificial nas aulas?',
+    categoria: 'area',
+  );
+
+  static const redesInfra = PerguntaModel(
+    id: 'redes_infra',
+    texto: 'Esse professor costuma trabalhar com redes ou infraestrutura?',
+    categoria: 'area',
+  );
+
+  static const hardware = PerguntaModel(
+    id: 'hardware',
+    texto:
+        'Esse professor costuma trabalhar com hardware, manutenção de computadores ou Arduino?',
+    categoria: 'area',
+  );
+
+  static const versionamentoSeg = PerguntaModel(
+    id: 'versionamento_seg',
+    texto:
+        'Esse professor costuma ensinar versionamento (Git), virtualização ou segurança?',
+    categoria: 'area',
+  );
+
+  // ------------------- Metodologia e disciplina -------------------
+
+  static const agil = PerguntaModel(
+    id: 'agil',
+    texto:
+        'Esse professor costuma ensinar metodologias ágeis, como Scrum e Kanban?',
     categoria: 'metodologia',
   );
 
-  /// Lista completa, usada para sortear perguntas neutras de fallback
-  /// e para validar que não há repetição.
+  static const testes = PerguntaModel(
+    id: 'testes',
+    texto: 'Esse professor costuma trabalhar com testes de software?',
+    categoria: 'area',
+  );
+
+  static const requisitos = PerguntaModel(
+    id: 'requisitos',
+    texto:
+        'Esse professor costuma trabalhar com levantamento e documentação de requisitos?',
+    categoria: 'area',
+  );
+
+  static const empreendedorismo = PerguntaModel(
+    id: 'empreendedorismo',
+    texto:
+        'Esse professor costuma abordar temas de empreendedorismo e negócios?',
+    categoria: 'area',
+  );
+
+  static const ingles = PerguntaModel(
+    id: 'ingles',
+    texto: 'Esse professor costuma ministrar as aulas em inglês?',
+    categoria: 'metodologia',
+  );
+
+  static const projetoIntegrador = PerguntaModel(
+    id: 'projeto_integrador',
+    texto: 'Esse professor costuma orientar o Projeto Integrador (PI)?',
+    categoria: 'metodologia',
+  );
+
+  // ----------- Características neutras e observáveis -----------
+
+  static const oculos = PerguntaModel(
+    id: 'oculos',
+    texto: 'Esse professor usa óculos?',
+    categoria: 'aparencia',
+  );
+
+  static const estiloFormal = PerguntaModel(
+    id: 'estilo_formal',
+    texto:
+        'Esse professor costuma usar roupas mais formais, como camisa social?',
+    categoria: 'aparencia',
+  );
+
+  static const visualAlternativo = PerguntaModel(
+    id: 'visual_alternativo',
+    texto:
+        'Esse professor tem um visual marcante, como cabelo colorido ou tatuagens?',
+    categoria: 'aparencia',
+  );
+
+  /// Lista completa, em ordem de prioridade para o fallback
+  /// (perguntas mais abrangentes primeiro).
   static const List<PerguntaModel> todas = [
-    areaPratica,
     programacao,
-    codigoPratico,
+    agil,
+    oculos,
+    estiloFormal,
+    web,
+    cCpp,
+    pooUml,
+    redesInfra,
+    versionamentoSeg,
+    projetoIntegrador,
+    ia,
     bancoDados,
-    laboratorio,
-    slides,
-    quadro,
-    mercado,
-    projetos,
-    organizacao,
-    diagramas,
-    passoAPasso,
-    exercicios,
-    gestao,
-    ferramentas,
-    trabalhoGrupo,
+    javascript,
+    mobile,
+    hardware,
+    testes,
+    requisitos,
+    empreendedorismo,
+    ingles,
+    visualAlternativo,
   ];
 }

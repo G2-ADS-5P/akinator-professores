@@ -3,6 +3,8 @@ import 'package:profkinator_ads/app/profkinator_app.dart';
 import 'package:profkinator_ads/controllers/game_controller.dart';
 
 void main() {
+  const total = GameController.limitePerguntas;
+
   // Obs.: a HomePage tem uma animação contínua de flutuação,
   // então os testes usam pump com duração em vez de pumpAndSettle.
   Future<void> avancarFrames(WidgetTester tester) async {
@@ -36,7 +38,7 @@ void main() {
     await tocar(tester, 'Começar');
     await avancarFrames(tester);
 
-    expect(find.text('Pergunta 1 de 10'), findsOneWidget);
+    expect(find.text('Pergunta 1 de $total'), findsOneWidget);
     expect(find.text('Sim'), findsOneWidget);
     expect(find.text('Não'), findsOneWidget);
     expect(find.text('Não sei'), findsOneWidget);
@@ -53,7 +55,7 @@ void main() {
     await tocar(tester, 'Sim');
     await avancarFrames(tester);
 
-    expect(find.text('Pergunta 2 de 10'), findsOneWidget);
+    expect(find.text('Pergunta 2 de $total'), findsOneWidget);
   });
 
   testWidgets('fluxo completo chega ao resultado e permite jogar novamente', (
@@ -65,7 +67,7 @@ void main() {
     await avancarFrames(tester);
 
     // Responde todas as perguntas até o fim do jogo.
-    for (var i = 0; i < GameController.limitePerguntas; i++) {
+    for (var i = 0; i < total; i++) {
       await tocar(tester, 'Sim');
       await avancarFrames(tester);
     }
@@ -82,6 +84,6 @@ void main() {
     await tocar(tester, 'Jogar novamente');
     await avancarFrames(tester);
 
-    expect(find.text('Pergunta 1 de 10'), findsOneWidget);
+    expect(find.text('Pergunta 1 de $total'), findsOneWidget);
   });
 }

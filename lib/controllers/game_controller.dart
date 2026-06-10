@@ -16,15 +16,73 @@ import '../models/resposta_enum.dart';
 ///    [calcularTopTres]).
 ///
 /// ============================================================
-/// PONTO DE INTEGRAÇÃO FINAL
-/// As associações de pontuação abaixo usam apenas IDs FICTÍCIOS
-/// (candidato_1, candidato_2, candidato_3) com pesos provisórios.
-/// Quando o responsável enviar os dados oficiais dos professores,
-/// os métodos _responderXxx devem ser calibrados com os IDs e
-/// pesos reais. Nada aqui representa professores reais.
+/// CALIBRAÇÃO
+/// As associações abaixo foram montadas com base nas informações
+/// oficiais enviadas pelo responsável do projeto (10/06/2026).
+/// Pesos: Sim +2 | Provavelmente sim +1 | Não sei 0 |
+///        Provavelmente não -1 | Não -2 (com contrapesos de ±1
+///        em perguntas que separam grupos grandes).
 /// ============================================================
 class GameController {
-  static const int limitePerguntas = 10;
+  static const int limitePerguntas = 12;
+
+  // ------------------------------------------------------------
+  // Grupos de calibração (listas auxiliares permitidas pelos docs)
+  // ------------------------------------------------------------
+
+  /// Professores que trabalham diretamente com programação.
+  static const idsProgramacao = [
+    'prof_fabiane',
+    'prof_willian',
+    'prof_guilherme',
+    'prof_jhoni',
+    'prof_speck',
+    'prof_marcos',
+  ];
+
+  /// Professores de áreas não focadas em programação.
+  static const idsNaoProgramacao = [
+    'prof_hiago',
+    'prof_andre',
+    'prof_marcel',
+    'prof_renato',
+    'prof_alan',
+  ];
+
+  /// Professores que usam óculos.
+  static const idsUsamOculos = [
+    'prof_alan',
+    'prof_fabiane',
+    'prof_vander',
+    'prof_leticia',
+  ];
+
+  /// Professores que não usam óculos (informação confirmada).
+  static const idsSemOculos = [
+    'prof_hiago',
+    'prof_willian',
+    'prof_guilherme',
+    'prof_jhoni',
+    'prof_marcos',
+    'prof_andre',
+    'prof_renato',
+    'prof_verspegel',
+  ];
+
+  /// Professores de estilo mais formal.
+  static const idsEstiloFormal = ['prof_fabiane', 'prof_renato'];
+
+  /// Professores de estilo casual (informação confirmada).
+  static const idsEstiloCasual = [
+    'prof_hiago',
+    'prof_alan',
+    'prof_willian',
+    'prof_guilherme',
+    'prof_jhoni',
+    'prof_marcos',
+    'prof_leticia',
+    'prof_speck',
+  ];
 
   final List<ProfessorModel> professores = criarProfessores();
   final List<String> perguntasRespondidas = [];
@@ -45,7 +103,7 @@ class GameController {
     perguntasRespondidas.clear();
     quantidadePerguntasRespondidas = 0;
     jogoFinalizado = false;
-    perguntaAtual = PerguntasData.areaPratica;
+    perguntaAtual = PerguntasData.programacao;
   }
 
   /// Recebe a resposta do usuário.
@@ -74,368 +132,460 @@ class GameController {
 
   /// Direciona a resposta para o método específico da pergunta atual.
   PerguntaModel? _tratarPerguntaAtual(RespostaEnum resposta) {
-    if (perguntaAtual.id == 'area_pratica') {
-      return _responderAreaPratica(resposta);
-    } else if (perguntaAtual.id == 'programacao') {
+    if (perguntaAtual.id == 'programacao') {
       return _responderProgramacao(resposta);
-    } else if (perguntaAtual.id == 'codigo_pratico') {
-      return _responderCodigoPratico(resposta);
+    } else if (perguntaAtual.id == 'web') {
+      return _responderWeb(resposta);
+    } else if (perguntaAtual.id == 'javascript') {
+      return _responderJavascript(resposta);
     } else if (perguntaAtual.id == 'banco_dados') {
       return _responderBancoDados(resposta);
-    } else if (perguntaAtual.id == 'laboratorio') {
-      return _responderLaboratorio(resposta);
-    } else if (perguntaAtual.id == 'slides') {
-      return _responderSlides(resposta);
-    } else if (perguntaAtual.id == 'quadro') {
-      return _responderQuadro(resposta);
-    } else if (perguntaAtual.id == 'mercado') {
-      return _responderMercado(resposta);
-    } else if (perguntaAtual.id == 'projetos') {
-      return _responderProjetos(resposta);
-    } else if (perguntaAtual.id == 'organizacao') {
-      return _responderOrganizacao(resposta);
-    } else if (perguntaAtual.id == 'diagramas') {
-      return _responderDiagramas(resposta);
-    } else if (perguntaAtual.id == 'passo_a_passo') {
-      return _responderPassoAPasso(resposta);
-    } else if (perguntaAtual.id == 'exercicios') {
-      return _responderExercicios(resposta);
-    } else if (perguntaAtual.id == 'gestao') {
-      return _responderGestao(resposta);
-    } else if (perguntaAtual.id == 'ferramentas') {
-      return _responderFerramentas(resposta);
-    } else if (perguntaAtual.id == 'trabalho_grupo') {
-      return _responderTrabalhoGrupo(resposta);
+    } else if (perguntaAtual.id == 'mobile') {
+      return _responderMobile(resposta);
+    } else if (perguntaAtual.id == 'c_cpp') {
+      return _responderCCpp(resposta);
+    } else if (perguntaAtual.id == 'poo_uml') {
+      return _responderPooUml(resposta);
+    } else if (perguntaAtual.id == 'ia') {
+      return _responderIa(resposta);
+    } else if (perguntaAtual.id == 'redes_infra') {
+      return _responderRedesInfra(resposta);
+    } else if (perguntaAtual.id == 'hardware') {
+      return _responderHardware(resposta);
+    } else if (perguntaAtual.id == 'versionamento_seg') {
+      return _responderVersionamentoSeg(resposta);
+    } else if (perguntaAtual.id == 'agil') {
+      return _responderAgil(resposta);
+    } else if (perguntaAtual.id == 'testes') {
+      return _responderTestes(resposta);
+    } else if (perguntaAtual.id == 'requisitos') {
+      return _responderRequisitos(resposta);
+    } else if (perguntaAtual.id == 'empreendedorismo') {
+      return _responderEmpreendedorismo(resposta);
+    } else if (perguntaAtual.id == 'ingles') {
+      return _responderIngles(resposta);
+    } else if (perguntaAtual.id == 'projeto_integrador') {
+      return _responderProjetoIntegrador(resposta);
+    } else if (perguntaAtual.id == 'oculos') {
+      return _responderOculos(resposta);
+    } else if (perguntaAtual.id == 'estilo_formal') {
+      return _responderEstiloFormal(resposta);
+    } else if (perguntaAtual.id == 'visual_alternativo') {
+      return _responderVisualAlternativo(resposta);
     } else {
       return _proximaPerguntaFallback();
     }
   }
 
-  // ----------------------------------------------------------
-  // Métodos de resposta por pergunta (associações PROVISÓRIAS).
-  // candidato_1 = perfil fictício "mão na massa / programação"
-  // candidato_2 = perfil fictício "gestão / teoria / mercado"
-  // candidato_3 = perfil fictício "dados / modelagem / quadro"
-  // ----------------------------------------------------------
+  // ------------------------------------------------------------
+  // Métodos de resposta por pergunta (CALIBRAÇÃO oficial)
+  // ------------------------------------------------------------
 
-  PerguntaModel? _responderAreaPratica(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_1'], 2);
-      alterarPontuacao(['candidato_2'], -1);
-      return _definirProxima(PerguntasData.codigoPratico);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_1'], 1);
-      return _definirProxima(PerguntasData.laboratorio);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_1'], -2);
-      alterarPontuacao(['candidato_2'], 1);
-      return _definirProxima(PerguntasData.slides);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_1'], -1);
-      return _definirProxima(PerguntasData.quadro);
-    } else {
-      // Não sei: não altera pontuação e segue para pergunta neutra.
-      return _definirProxima(PerguntasData.mercado);
-    }
-  }
-
+  /// Fabiane, Willian, Guilherme, Jhoni, Speck e Marcos programam.
   PerguntaModel? _responderProgramacao(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_1'], 2);
-      alterarPontuacao(['candidato_2', 'candidato_3'], -1);
-      return _definirProxima(PerguntasData.ferramentas);
+      alterarPontuacao(idsProgramacao, 2);
+      alterarPontuacao(idsNaoProgramacao, -1);
+      return _definirProxima(PerguntasData.web);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_1'], 1);
-      return _definirProxima(PerguntasData.codigoPratico);
+      alterarPontuacao(idsProgramacao, 1);
+      return _definirProxima(PerguntasData.cCpp);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_1'], -2);
-      alterarPontuacao(['candidato_2', 'candidato_3'], 1);
-      return _definirProxima(PerguntasData.gestao);
+      alterarPontuacao(idsProgramacao, -2);
+      alterarPontuacao(idsNaoProgramacao, 1);
+      return _definirProxima(PerguntasData.agil);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_1'], -1);
-      return _definirProxima(PerguntasData.diagramas);
+      alterarPontuacao(idsProgramacao, -1);
+      return _definirProxima(PerguntasData.requisitos);
     } else {
-      return _definirProxima(PerguntasData.slides);
+      // Não sei: segue para característica observável.
+      return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  PerguntaModel? _responderCodigoPratico(RespostaEnum resposta) {
+  /// Willian (sites básicos/Django) e Guilherme (sites dinâmicos).
+  PerguntaModel? _responderWeb(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_1'], 2);
-      alterarPontuacao(['candidato_2'], -1);
-      return _definirProxima(PerguntasData.programacao);
+      alterarPontuacao(['prof_willian', 'prof_guilherme'], 2);
+      alterarPontuacao(['prof_fabiane', 'prof_speck'], -1);
+      return _definirProxima(PerguntasData.javascript);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_1'], 1);
-      return _definirProxima(PerguntasData.ferramentas);
+      alterarPontuacao(['prof_willian', 'prof_guilherme'], 1);
+      return _definirProxima(PerguntasData.bancoDados);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_1'], -2);
-      alterarPontuacao(['candidato_2'], 1);
-      return _definirProxima(PerguntasData.quadro);
+      alterarPontuacao(['prof_willian', 'prof_guilherme'], -2);
+      alterarPontuacao(['prof_fabiane', 'prof_speck'], 1);
+      return _definirProxima(PerguntasData.mobile);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_1'], -1);
-      return _definirProxima(PerguntasData.passoAPasso);
+      alterarPontuacao(['prof_willian', 'prof_guilherme'], -1);
+      return _definirProxima(PerguntasData.cCpp);
     } else {
-      return _definirProxima(PerguntasData.exercicios);
+      return _definirProxima(PerguntasData.oculos);
     }
   }
 
+  /// Guilherme ama JavaScript e UX/UI; Willian foca em Python.
+  PerguntaModel? _responderJavascript(RespostaEnum resposta) {
+    if (resposta == RespostaEnum.sim) {
+      alterarPontuacao(['prof_guilherme'], 2);
+      alterarPontuacao(['prof_willian'], -1);
+      return _definirProxima(PerguntasData.bancoDados);
+    } else if (resposta == RespostaEnum.provavelmenteSim) {
+      alterarPontuacao(['prof_guilherme'], 1);
+      return _definirProxima(PerguntasData.bancoDados);
+    } else if (resposta == RespostaEnum.nao) {
+      alterarPontuacao(['prof_guilherme'], -2);
+      alterarPontuacao(['prof_willian'], 1);
+      return _definirProxima(PerguntasData.mobile);
+    } else if (resposta == RespostaEnum.provavelmenteNao) {
+      alterarPontuacao(['prof_guilherme'], -1);
+      return _definirProxima(PerguntasData.mobile);
+    } else {
+      return _definirProxima(PerguntasData.oculos);
+    }
+  }
+
+  /// Willian leciona banco de dados.
   PerguntaModel? _responderBancoDados(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_3'], 2);
-      alterarPontuacao(['candidato_1'], -1);
-      return _definirProxima(PerguntasData.diagramas);
+      alterarPontuacao(['prof_willian'], 2);
+      alterarPontuacao(['prof_guilherme'], -1);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_3'], 1);
-      return _definirProxima(PerguntasData.quadro);
+      alterarPontuacao(['prof_willian'], 1);
+      return _definirProxima(PerguntasData.web);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_3'], -2);
-      alterarPontuacao(['candidato_1'], 1);
-      return _definirProxima(PerguntasData.programacao);
+      alterarPontuacao(['prof_willian'], -2);
+      return _definirProxima(PerguntasData.mobile);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_3'], -1);
-      return _definirProxima(PerguntasData.mercado);
+      alterarPontuacao(['prof_willian'], -1);
+      return _definirProxima(PerguntasData.pooUml);
     } else {
-      return _definirProxima(PerguntasData.organizacao);
+      return _definirProxima(PerguntasData.cCpp);
     }
   }
 
-  PerguntaModel? _responderLaboratorio(RespostaEnum resposta) {
+  /// Jefferson Speck ensina Dart e Flutter.
+  PerguntaModel? _responderMobile(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_1'], 2);
-      alterarPontuacao(['candidato_2'], -1);
-      return _definirProxima(PerguntasData.ferramentas);
+      alterarPontuacao(['prof_speck'], 2);
+      alterarPontuacao(['prof_willian', 'prof_guilherme'], -1);
+      return _definirProxima(PerguntasData.visualAlternativo);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_1'], 1);
-      return _definirProxima(PerguntasData.projetos);
+      alterarPontuacao(['prof_speck'], 1);
+      return _definirProxima(PerguntasData.visualAlternativo);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_1'], -2);
-      alterarPontuacao(['candidato_2'], 1);
-      return _definirProxima(PerguntasData.slides);
+      alterarPontuacao(['prof_speck'], -2);
+      return _definirProxima(PerguntasData.pooUml);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_1'], -1);
-      return _definirProxima(PerguntasData.exercicios);
+      alterarPontuacao(['prof_speck'], -1);
+      return _definirProxima(PerguntasData.cCpp);
     } else {
-      return _definirProxima(PerguntasData.trabalhoGrupo);
+      return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  PerguntaModel? _responderSlides(RespostaEnum resposta) {
+  /// Fabiane (desktop) e Marcos (ponteiros) ensinam C/C++.
+  PerguntaModel? _responderCCpp(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_2'], 2);
-      alterarPontuacao(['candidato_1'], -1);
-      return _definirProxima(PerguntasData.mercado);
+      alterarPontuacao(['prof_fabiane', 'prof_marcos'], 2);
+      alterarPontuacao(['prof_willian', 'prof_guilherme', 'prof_speck'], -1);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_2'], 1);
-      return _definirProxima(PerguntasData.gestao);
+      alterarPontuacao(['prof_fabiane', 'prof_marcos'], 1);
+      return _definirProxima(PerguntasData.estiloFormal);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_2'], -2);
-      alterarPontuacao(['candidato_1'], 1);
-      return _definirProxima(PerguntasData.quadro);
+      alterarPontuacao(['prof_fabiane', 'prof_marcos'], -2);
+      return _definirProxima(PerguntasData.pooUml);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_2'], -1);
-      return _definirProxima(PerguntasData.codigoPratico);
+      alterarPontuacao(['prof_fabiane', 'prof_marcos'], -1);
+      return _definirProxima(PerguntasData.ia);
     } else {
-      return _definirProxima(PerguntasData.passoAPasso);
+      return _definirProxima(PerguntasData.redesInfra);
     }
   }
 
-  PerguntaModel? _responderQuadro(RespostaEnum resposta) {
+  /// Jhoni ensina Java, POO e UML.
+  PerguntaModel? _responderPooUml(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_3'], 2);
-      alterarPontuacao(['candidato_2'], -1);
-      return _definirProxima(PerguntasData.exercicios);
+      alterarPontuacao(['prof_jhoni'], 2);
+      return _definirProxima(PerguntasData.ia);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_3'], 1);
-      return _definirProxima(PerguntasData.passoAPasso);
+      alterarPontuacao(['prof_jhoni'], 1);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_3'], -2);
-      alterarPontuacao(['candidato_2'], 1);
-      return _definirProxima(PerguntasData.slides);
+      alterarPontuacao(['prof_jhoni'], -2);
+      return _definirProxima(PerguntasData.ia);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_3'], -1);
-      return _definirProxima(PerguntasData.bancoDados);
+      alterarPontuacao(['prof_jhoni'], -1);
+      return _definirProxima(PerguntasData.versionamentoSeg);
     } else {
-      return _definirProxima(PerguntasData.diagramas);
+      return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  PerguntaModel? _responderMercado(RespostaEnum resposta) {
+  /// Verspegel é o professor de IA; Jhoni é entusiasta declarado.
+  PerguntaModel? _responderIa(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_2'], 2);
-      alterarPontuacao(['candidato_3'], -1);
-      return _definirProxima(PerguntasData.gestao);
+      alterarPontuacao(['prof_verspegel'], 2);
+      alterarPontuacao(['prof_jhoni'], 1);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_2'], 1);
-      return _definirProxima(PerguntasData.projetos);
+      alterarPontuacao(['prof_verspegel'], 1);
+      return _definirProxima(PerguntasData.pooUml);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_2'], -2);
-      alterarPontuacao(['candidato_3'], 1);
-      return _definirProxima(PerguntasData.exercicios);
+      alterarPontuacao(['prof_verspegel'], -2);
+      return _definirProxima(PerguntasData.versionamentoSeg);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_2'], -1);
-      return _definirProxima(PerguntasData.bancoDados);
+      alterarPontuacao(['prof_verspegel'], -1);
+      return _definirProxima(PerguntasData.redesInfra);
     } else {
-      return _definirProxima(PerguntasData.trabalhoGrupo);
+      return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  PerguntaModel? _responderProjetos(RespostaEnum resposta) {
+  /// Marcos (redes) e Vander (manutenção) atuam em infraestrutura.
+  PerguntaModel? _responderRedesInfra(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_1', 'candidato_2'], 2);
-      alterarPontuacao(['candidato_3'], -1);
-      return _definirProxima(PerguntasData.trabalhoGrupo);
+      alterarPontuacao(['prof_marcos', 'prof_vander'], 2);
+      alterarPontuacao(['prof_fabiane', 'prof_willian', 'prof_guilherme'], -1);
+      return _definirProxima(PerguntasData.hardware);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_1', 'candidato_2'], 1);
-      return _definirProxima(PerguntasData.organizacao);
+      alterarPontuacao(['prof_marcos', 'prof_vander'], 1);
+      return _definirProxima(PerguntasData.hardware);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_1', 'candidato_2'], -2);
-      alterarPontuacao(['candidato_3'], 1);
-      return _definirProxima(PerguntasData.exercicios);
+      alterarPontuacao(['prof_marcos', 'prof_vander'], -2);
+      return _definirProxima(PerguntasData.versionamentoSeg);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_1', 'candidato_2'], -1);
-      return _definirProxima(PerguntasData.passoAPasso);
+      alterarPontuacao(['prof_marcos', 'prof_vander'], -1);
+      return _definirProxima(PerguntasData.oculos);
     } else {
-      return _definirProxima(PerguntasData.gestao);
+      return _definirProxima(PerguntasData.cCpp);
     }
   }
 
-  PerguntaModel? _responderOrganizacao(RespostaEnum resposta) {
+  /// Vander trabalha com hardware, manutenção e Arduino.
+  PerguntaModel? _responderHardware(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_2', 'candidato_3'], 2);
-      return _definirProxima(PerguntasData.gestao);
+      alterarPontuacao(['prof_vander'], 2);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_2', 'candidato_3'], 1);
-      return _definirProxima(PerguntasData.trabalhoGrupo);
+      alterarPontuacao(['prof_vander'], 1);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_2', 'candidato_3'], -2);
-      return _definirProxima(PerguntasData.laboratorio);
+      alterarPontuacao(['prof_vander'], -2);
+      return _definirProxima(PerguntasData.cCpp);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_2', 'candidato_3'], -1);
-      return _definirProxima(PerguntasData.projetos);
+      alterarPontuacao(['prof_vander'], -1);
+      return _definirProxima(PerguntasData.versionamentoSeg);
     } else {
-      return _definirProxima(PerguntasData.passoAPasso);
+      return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  PerguntaModel? _responderDiagramas(RespostaEnum resposta) {
+  /// Letícia ensina Git, virtualização e segurança.
+  PerguntaModel? _responderVersionamentoSeg(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_3'], 2);
-      alterarPontuacao(['candidato_1'], -1);
-      return _definirProxima(PerguntasData.bancoDados);
+      alterarPontuacao(['prof_leticia'], 2);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_3'], 1);
-      return _definirProxima(PerguntasData.gestao);
+      alterarPontuacao(['prof_leticia'], 1);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_3'], -2);
-      alterarPontuacao(['candidato_1'], 1);
-      return _definirProxima(PerguntasData.codigoPratico);
+      alterarPontuacao(['prof_leticia'], -2);
+      return _definirProxima(PerguntasData.redesInfra);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_3'], -1);
-      return _definirProxima(PerguntasData.exercicios);
+      alterarPontuacao(['prof_leticia'], -1);
+      return _definirProxima(PerguntasData.ia);
     } else {
-      return _definirProxima(PerguntasData.quadro);
+      return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  PerguntaModel? _responderPassoAPasso(RespostaEnum resposta) {
+  /// Hiago e Andre ensinam Scrum/Kanban; Alan e Marcel não.
+  PerguntaModel? _responderAgil(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_3'], 2);
-      return _definirProxima(PerguntasData.exercicios);
+      alterarPontuacao(['prof_hiago', 'prof_andre'], 2);
+      alterarPontuacao(['prof_alan', 'prof_marcel'], -1);
+      return _definirProxima(PerguntasData.testes);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_3'], 1);
-      return _definirProxima(PerguntasData.quadro);
+      alterarPontuacao(['prof_hiago', 'prof_andre'], 1);
+      return _definirProxima(PerguntasData.projetoIntegrador);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_3'], -2);
-      return _definirProxima(PerguntasData.projetos);
+      alterarPontuacao(['prof_hiago', 'prof_andre'], -2);
+      alterarPontuacao(['prof_alan', 'prof_marcel'], 1);
+      return _definirProxima(PerguntasData.requisitos);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_3'], -1);
-      return _definirProxima(PerguntasData.laboratorio);
+      alterarPontuacao(['prof_hiago', 'prof_andre'], -1);
+      return _definirProxima(PerguntasData.empreendedorismo);
     } else {
-      return _definirProxima(PerguntasData.slides);
+      return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  PerguntaModel? _responderExercicios(RespostaEnum resposta) {
+  /// Andre ama testes (Jira, Trello); separa Andre de Hiago.
+  PerguntaModel? _responderTestes(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_1', 'candidato_3'], 2);
-      return _definirProxima(PerguntasData.passoAPasso);
+      alterarPontuacao(['prof_andre'], 2);
+      alterarPontuacao(['prof_hiago'], -1);
+      return _definirProxima(PerguntasData.projetoIntegrador);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_1', 'candidato_3'], 1);
-      return _definirProxima(PerguntasData.quadro);
+      alterarPontuacao(['prof_andre'], 1);
+      return _definirProxima(PerguntasData.projetoIntegrador);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_1', 'candidato_3'], -2);
-      return _definirProxima(PerguntasData.projetos);
+      alterarPontuacao(['prof_andre'], -2);
+      alterarPontuacao(['prof_hiago'], 1);
+      return _definirProxima(PerguntasData.estiloFormal);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_1', 'candidato_3'], -1);
-      return _definirProxima(PerguntasData.trabalhoGrupo);
+      alterarPontuacao(['prof_andre'], -1);
+      return _definirProxima(PerguntasData.oculos);
     } else {
-      return _definirProxima(PerguntasData.mercado);
+      return _definirProxima(PerguntasData.requisitos);
     }
   }
 
-  PerguntaModel? _responderGestao(RespostaEnum resposta) {
+  /// Alan é o professor de Engenharia de Requisitos.
+  PerguntaModel? _responderRequisitos(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_2'], 2);
-      alterarPontuacao(['candidato_1'], -1);
-      return _definirProxima(PerguntasData.organizacao);
+      alterarPontuacao(['prof_alan'], 2);
+      alterarPontuacao(['prof_hiago', 'prof_andre'], -1);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_2'], 1);
-      return _definirProxima(PerguntasData.mercado);
+      alterarPontuacao(['prof_alan'], 1);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_2'], -2);
-      alterarPontuacao(['candidato_1'], 1);
-      return _definirProxima(PerguntasData.programacao);
+      alterarPontuacao(['prof_alan'], -2);
+      return _definirProxima(PerguntasData.empreendedorismo);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_2'], -1);
-      return _definirProxima(PerguntasData.ferramentas);
+      alterarPontuacao(['prof_alan'], -1);
+      return _definirProxima(PerguntasData.agil);
     } else {
-      return _definirProxima(PerguntasData.projetos);
+      return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  PerguntaModel? _responderFerramentas(RespostaEnum resposta) {
+  /// Marcel leciona empreendedorismo (formato Shark Tank).
+  PerguntaModel? _responderEmpreendedorismo(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_1'], 2);
-      alterarPontuacao(['candidato_2'], -1);
-      return _definirProxima(PerguntasData.programacao);
+      alterarPontuacao(['prof_marcel'], 2);
+      return _definirProxima(PerguntasData.ingles);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_1'], 1);
-      return _definirProxima(PerguntasData.codigoPratico);
+      alterarPontuacao(['prof_marcel'], 1);
+      return _definirProxima(PerguntasData.ingles);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_1'], -2);
-      alterarPontuacao(['candidato_2'], 1);
-      return _definirProxima(PerguntasData.slides);
+      alterarPontuacao(['prof_marcel'], -2);
+      return _definirProxima(PerguntasData.projetoIntegrador);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_1'], -1);
-      return _definirProxima(PerguntasData.quadro);
+      alterarPontuacao(['prof_marcel'], -1);
+      return _definirProxima(PerguntasData.agil);
     } else {
-      return _definirProxima(PerguntasData.laboratorio);
+      return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  PerguntaModel? _responderTrabalhoGrupo(RespostaEnum resposta) {
+  /// Marcel ministra as aulas em inglês.
+  PerguntaModel? _responderIngles(RespostaEnum resposta) {
     if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['candidato_2'], 2);
-      alterarPontuacao(['candidato_3'], -1);
-      return _definirProxima(PerguntasData.projetos);
+      alterarPontuacao(['prof_marcel'], 2);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['candidato_2'], 1);
-      return _definirProxima(PerguntasData.organizacao);
+      alterarPontuacao(['prof_marcel'], 1);
+      return _definirProxima(PerguntasData.oculos);
     } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['candidato_2'], -2);
-      alterarPontuacao(['candidato_3'], 1);
-      return _definirProxima(PerguntasData.passoAPasso);
+      alterarPontuacao(['prof_marcel'], -2);
+      return _definirProxima(PerguntasData.projetoIntegrador);
     } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['candidato_2'], -1);
-      return _definirProxima(PerguntasData.exercicios);
+      alterarPontuacao(['prof_marcel'], -1);
+      return _definirProxima(PerguntasData.agil);
     } else {
-      return _definirProxima(PerguntasData.mercado);
+      return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  // ----------------------------------------------------------
+  /// Hiago, Andre e Renato orientam o Projeto Integrador.
+  PerguntaModel? _responderProjetoIntegrador(RespostaEnum resposta) {
+    if (resposta == RespostaEnum.sim) {
+      alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], 2);
+      return _definirProxima(PerguntasData.estiloFormal);
+    } else if (resposta == RespostaEnum.provavelmenteSim) {
+      alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], 1);
+      return _definirProxima(PerguntasData.agil);
+    } else if (resposta == RespostaEnum.nao) {
+      alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], -2);
+      return _definirProxima(PerguntasData.oculos);
+    } else if (resposta == RespostaEnum.provavelmenteNao) {
+      alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], -1);
+      return _definirProxima(PerguntasData.requisitos);
+    } else {
+      return _definirProxima(PerguntasData.estiloFormal);
+    }
+  }
+
+  /// Alan, Fabiane, Vander e Letícia usam óculos.
+  PerguntaModel? _responderOculos(RespostaEnum resposta) {
+    if (resposta == RespostaEnum.sim) {
+      alterarPontuacao(idsUsamOculos, 2);
+      alterarPontuacao(idsSemOculos, -1);
+      return _definirProxima(PerguntasData.estiloFormal);
+    } else if (resposta == RespostaEnum.provavelmenteSim) {
+      alterarPontuacao(idsUsamOculos, 1);
+      return _definirProxima(PerguntasData.estiloFormal);
+    } else if (resposta == RespostaEnum.nao) {
+      alterarPontuacao(idsUsamOculos, -2);
+      alterarPontuacao(idsSemOculos, 1);
+      return _definirProxima(PerguntasData.visualAlternativo);
+    } else if (resposta == RespostaEnum.provavelmenteNao) {
+      alterarPontuacao(idsUsamOculos, -1);
+      return _definirProxima(PerguntasData.estiloFormal);
+    } else {
+      return _definirProxima(PerguntasData.estiloFormal);
+    }
+  }
+
+  /// Fabiane e Renato têm estilo formal; a maioria é casual.
+  PerguntaModel? _responderEstiloFormal(RespostaEnum resposta) {
+    if (resposta == RespostaEnum.sim) {
+      alterarPontuacao(idsEstiloFormal, 2);
+      alterarPontuacao(idsEstiloCasual, -1);
+      return _definirProxima(PerguntasData.cCpp);
+    } else if (resposta == RespostaEnum.provavelmenteSim) {
+      alterarPontuacao(idsEstiloFormal, 1);
+      return _definirProxima(PerguntasData.projetoIntegrador);
+    } else if (resposta == RespostaEnum.nao) {
+      alterarPontuacao(idsEstiloFormal, -2);
+      alterarPontuacao(idsEstiloCasual, 1);
+      return _definirProxima(PerguntasData.visualAlternativo);
+    } else if (resposta == RespostaEnum.provavelmenteNao) {
+      alterarPontuacao(idsEstiloFormal, -1);
+      return _definirProxima(PerguntasData.agil);
+    } else {
+      return _definirProxima(PerguntasData.oculos);
+    }
+  }
+
+  /// Jefferson Speck tem cabelo colorido e tatuagens.
+  PerguntaModel? _responderVisualAlternativo(RespostaEnum resposta) {
+    if (resposta == RespostaEnum.sim) {
+      alterarPontuacao(['prof_speck'], 2);
+      alterarPontuacao(idsEstiloFormal, -1);
+      return _definirProxima(PerguntasData.mobile);
+    } else if (resposta == RespostaEnum.provavelmenteSim) {
+      alterarPontuacao(['prof_speck'], 1);
+      return _definirProxima(PerguntasData.mobile);
+    } else if (resposta == RespostaEnum.nao) {
+      alterarPontuacao(['prof_speck'], -2);
+      return _definirProxima(PerguntasData.oculos);
+    } else if (resposta == RespostaEnum.provavelmenteNao) {
+      alterarPontuacao(['prof_speck'], -1);
+      return _definirProxima(PerguntasData.oculos);
+    } else {
+      return _definirProxima(PerguntasData.estiloFormal);
+    }
+  }
+
+  // ------------------------------------------------------------
   // Funções auxiliares
-  // ----------------------------------------------------------
+  // ------------------------------------------------------------
 
   /// Soma [pontos] (positivo ou negativo) aos professores com os [ids].
   void alterarPontuacao(List<String> ids, double pontos) {
@@ -468,9 +618,9 @@ class GameController {
     return null;
   }
 
-  // ----------------------------------------------------------
+  // ------------------------------------------------------------
   // Resultado
-  // ----------------------------------------------------------
+  // ------------------------------------------------------------
 
   /// Professor com a maior pontuação.
   ProfessorModel calcularResultado() {
