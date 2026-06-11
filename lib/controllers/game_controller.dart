@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../data/perguntas_data.dart';
 import '../data/professores_data.dart';
 import '../models/pergunta_model.dart';
@@ -6,58 +8,52 @@ import '../models/resposta_enum.dart';
 
 /// Controla todo o estado e a regra de uma partida.
 ///
-/// Fluxo geral:
-/// 1. [iniciarJogo] zera pontuações e define a pergunta inicial.
-/// 2. [responder] usa `if / else` para identificar a pergunta atual,
-///    tratar a resposta, atualizar pontuações e escolher a próxima
-///    pergunta sem repetição.
-/// 3. Quando retorna `null`, a partida terminou e a tela deve exibir
-///    o resultado ([calcularResultado], [calcularConfianca],
-///    [calcularTopTres]).
+/// O jogo termina quando um professor atinge [limiarProbabilidade]
+/// (mínimo de [_minimoPerguntas]) ou quando todas as perguntas
+/// são esgotadas.
 ///
-/// ============================================================
-/// CALIBRAÇÃO
-/// As associações abaixo foram montadas com base nas informações
-/// oficiais enviadas pelo responsável do projeto (10/06/2026).
-/// Pesos: Sim +2 | Provavelmente sim +1 | Não sei 0 |
-///        Provavelmente não -1 | Não -2 (com contrapesos de ±1
-///        em perguntas que separam grupos grandes).
-/// ============================================================
+/// Pontuação:
+///   Sim +2 / Provavelmente sim +1 / Não sei 0 /
+///   Provavelmente não −1 / Não −2
+///   (contrapesos de ±1 para grupos opostos onde aplicável)
 class GameController {
-  static const int limitePerguntas = 12;
+  static const int _minimoPerguntas = 3;
+  static const double limiarProbabilidade = 0.30;
+  static const double temperatura = 0.35;
 
   // ------------------------------------------------------------
-  // Grupos de calibração (listas auxiliares permitidas pelos docs)
+  // Grupos de calibração — baseados nos dados oficiais dos profs
   // ------------------------------------------------------------
 
-  /// Professores que trabalham diretamente com programação.
+  /// Professores que trabalham com programação / desenvolvimento.
   static const idsProgramacao = [
-    'prof_fabiane',
-    'prof_willian',
-    'prof_guilherme',
-    'prof_jhoni',
-    'prof_speck',
-    'prof_marcos',
+    'prof_fabiane', // C/C++, lógica
+    'prof_willian', // Python, Django
+    'prof_guilherme', // JS, UX/UI
+    'prof_jhoni', // Java, POO
+    'prof_speck', // Dart, Flutter
+    'prof_marcos', // C/C++, redes
+    'prof_fabiano',
   ];
 
-  /// Professores de áreas não focadas em programação.
+  /// Professores sem foco direto em programação.
   static const idsNaoProgramacao = [
-    'prof_hiago',
-    'prof_andre',
-    'prof_marcel',
-    'prof_renato',
-    'prof_alan',
+    'prof_hiago', // gestão/ágil
+    'prof_andre', // testes/PI
+    'prof_marcel', // empreendedorismo
+    'prof_renato', // PI
+    'prof_alan', // requisitos
   ];
 
   /// Professores que usam óculos.
   static const idsUsamOculos = [
     'prof_alan',
     'prof_fabiane',
-    'prof_vander',
+    'prof_wander',
     'prof_leticia',
   ];
 
-  /// Professores que não usam óculos (informação confirmada).
+  /// Professores confirmados sem óculos.
   static const idsSemOculos = [
     'prof_hiago',
     'prof_willian',
@@ -69,10 +65,44 @@ class GameController {
     'prof_verspegel',
   ];
 
-  /// Professores de estilo mais formal.
+  /// Professores com cabeça raspada / carecas.
+  static const idsCareca = ['prof_willian', 'prof_marcos'];
+
+  /// Professores com cabelo normal (confirmado não careca).
+  static const idsNaoCareca = [
+    'prof_hiago',
+    'prof_alan',
+    'prof_fabiane',
+    'prof_wander',
+    'prof_guilherme',
+    'prof_jhoni',
+    'prof_andre',
+    'prof_leticia',
+    'prof_speck',
+    'prof_marcel',
+    'prof_renato',
+    'prof_verspegel',
+  ];
+
+  /// Professores visivelmente altos.
+  static const idsAltos = [
+    'prof_hiago',
+    'prof_alan',
+    'prof_wander',
+    'prof_andre',
+    'prof_renato',
+  ];
+
+  /// Professores visivelmente baixos.
+  static const idsBaixos = ['prof_jhoni', 'prof_verspegel'];
+
+  /// Professores com cabelo loiro.
+  static const idsCabeloLoiro = ['prof_fabiane', 'prof_leticia'];
+
+  /// Estilo de roupa mais formal (camisa social).
   static const idsEstiloFormal = ['prof_fabiane', 'prof_renato'];
 
-  /// Professores de estilo casual (informação confirmada).
+  /// Estilo de roupa casual / não-formal.
   static const idsEstiloCasual = [
     'prof_hiago',
     'prof_alan',
@@ -86,6 +116,7 @@ class GameController {
 
   final List<ProfessorModel> professores = criarProfessores();
   final List<String> perguntasRespondidas = [];
+  final List<PerguntaModel> _perguntasEmbaralhadas = [];
 
   late PerguntaModel perguntaAtual;
   int quantidadePerguntasRespondidas = 0;
@@ -95,7 +126,6 @@ class GameController {
     iniciarJogo();
   }
 
-  /// Inicia (ou reinicia) a partida, zerando todo o estado.
   void iniciarJogo() {
     for (final professor in professores) {
       professor.resetarPontos();
@@ -103,25 +133,32 @@ class GameController {
     perguntasRespondidas.clear();
     quantidadePerguntasRespondidas = 0;
     jogoFinalizado = false;
-    perguntaAtual = PerguntasData.programacao;
+    _perguntasEmbaralhadas
+      ..clear()
+      ..addAll(PerguntasData.todas)
+      ..shuffle();
+    perguntaAtual = _perguntasEmbaralhadas.first;
   }
 
-  /// Recebe a resposta do usuário.
-  ///
-  /// Retorna a próxima pergunta ou `null` quando a partida termina.
+  /// Recebe a resposta e retorna a próxima pergunta, ou `null` ao
+  /// fim do jogo (70 % de probabilidade atingida ou perguntas esgotadas).
   PerguntaModel? responder(RespostaEnum resposta) {
-    if (jogoFinalizado) {
-      return null;
-    }
+    if (jogoFinalizado) return null;
 
     perguntasRespondidas.add(perguntaAtual.id);
     quantidadePerguntasRespondidas++;
 
-    // Identifica a pergunta atual e trata a resposta com if / else.
     final PerguntaModel? proxima = _tratarPerguntaAtual(resposta);
 
-    // Condições de fim de jogo: limite atingido ou sem perguntas úteis.
-    if (quantidadePerguntasRespondidas >= limitePerguntas || proxima == null) {
+    if (quantidadePerguntasRespondidas >= _minimoPerguntas) {
+      final probs = calcularProbabilidades();
+      if (probs.values.reduce(max) >= limiarProbabilidade) {
+        jogoFinalizado = true;
+        return null;
+      }
+    }
+
+    if (proxima == null) {
       jogoFinalizado = true;
       return null;
     }
@@ -130,456 +167,562 @@ class GameController {
     return perguntaAtual;
   }
 
-  /// Direciona a resposta para o método específico da pergunta atual.
+  // ------------------------------------------------------------
+  // Roteamento de respostas
+  // ------------------------------------------------------------
+
   PerguntaModel? _tratarPerguntaAtual(RespostaEnum resposta) {
-    if (perguntaAtual.id == 'programacao') {
-      return _responderProgramacao(resposta);
-    } else if (perguntaAtual.id == 'web') {
-      return _responderWeb(resposta);
-    } else if (perguntaAtual.id == 'javascript') {
-      return _responderJavascript(resposta);
-    } else if (perguntaAtual.id == 'banco_dados') {
-      return _responderBancoDados(resposta);
-    } else if (perguntaAtual.id == 'mobile') {
-      return _responderMobile(resposta);
-    } else if (perguntaAtual.id == 'c_cpp') {
-      return _responderCCpp(resposta);
-    } else if (perguntaAtual.id == 'poo_uml') {
-      return _responderPooUml(resposta);
-    } else if (perguntaAtual.id == 'ia') {
-      return _responderIa(resposta);
-    } else if (perguntaAtual.id == 'redes_infra') {
-      return _responderRedesInfra(resposta);
-    } else if (perguntaAtual.id == 'hardware') {
-      return _responderHardware(resposta);
-    } else if (perguntaAtual.id == 'versionamento_seg') {
-      return _responderVersionamentoSeg(resposta);
-    } else if (perguntaAtual.id == 'agil') {
-      return _responderAgil(resposta);
-    } else if (perguntaAtual.id == 'testes') {
-      return _responderTestes(resposta);
-    } else if (perguntaAtual.id == 'requisitos') {
-      return _responderRequisitos(resposta);
-    } else if (perguntaAtual.id == 'empreendedorismo') {
-      return _responderEmpreendedorismo(resposta);
-    } else if (perguntaAtual.id == 'ingles') {
-      return _responderIngles(resposta);
-    } else if (perguntaAtual.id == 'projeto_integrador') {
-      return _responderProjetoIntegrador(resposta);
-    } else if (perguntaAtual.id == 'oculos') {
-      return _responderOculos(resposta);
-    } else if (perguntaAtual.id == 'estilo_formal') {
-      return _responderEstiloFormal(resposta);
-    } else if (perguntaAtual.id == 'visual_alternativo') {
-      return _responderVisualAlternativo(resposta);
-    } else {
-      return _proximaPerguntaFallback();
+    switch (perguntaAtual.id) {
+      case 'programacao':
+        return _responderProgramacao(resposta);
+      case 'web':
+        return _responderWeb(resposta);
+      case 'javascript':
+        return _responderJavascript(resposta);
+      case 'banco_dados':
+        return _responderBancoDados(resposta);
+      case 'mobile':
+        return _responderMobile(resposta);
+      case 'c_cpp':
+        return _responderCCpp(resposta);
+      case 'poo_uml':
+        return _responderPooUml(resposta);
+      case 'ia':
+        return _responderIa(resposta);
+      case 'redes_infra':
+        return _responderRedesInfra(resposta);
+      case 'hardware':
+        return _responderHardware(resposta);
+      case 'versionamento_seg':
+        return _responderVersionamentoSeg(resposta);
+      case 'agil':
+        return _responderAgil(resposta);
+      case 'testes':
+        return _responderTestes(resposta);
+      case 'requisitos':
+        return _responderRequisitos(resposta);
+      case 'empreendedorismo':
+        return _responderEmpreendedorismo(resposta);
+      case 'ingles':
+        return _responderIngles(resposta);
+      case 'projeto_integrador':
+        return _responderProjetoIntegrador(resposta);
+      case 'oculos':
+        return _responderOculos(resposta);
+      case 'estilo_formal':
+        return _responderEstiloFormal(resposta);
+      case 'visual_alternativo':
+        return _responderVisualAlternativo(resposta);
+      case 'careca':
+        return _responderCareca(resposta);
+      case 'alto':
+        return _responderAlto(resposta);
+      case 'loiro':
+        return _responderLoiro(resposta);
+      default:
+        return _proximaPerguntaFallback();
     }
   }
 
   // ------------------------------------------------------------
-  // Métodos de resposta por pergunta (CALIBRAÇÃO oficial)
+  // Métodos de resposta por pergunta
   // ------------------------------------------------------------
 
-  /// Fabiane, Willian, Guilherme, Jhoni, Speck e Marcos programam.
+  /// Programam: Fabiane, Willian, Guilherme, Jhoni, Speck, Marcos, Fabiano.
   PerguntaModel? _responderProgramacao(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(idsProgramacao, 2);
-      alterarPontuacao(idsNaoProgramacao, -1);
-      return _definirProxima(PerguntasData.web);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(idsProgramacao, 1);
-      return _definirProxima(PerguntasData.cCpp);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(idsProgramacao, -2);
-      alterarPontuacao(idsNaoProgramacao, 1);
-      return _definirProxima(PerguntasData.agil);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(idsProgramacao, -1);
-      return _definirProxima(PerguntasData.requisitos);
-    } else {
-      // Não sei: segue para característica observável.
-      return _definirProxima(PerguntasData.oculos);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(idsProgramacao, 2);
+        alterarPontuacao(idsNaoProgramacao, -1);
+        return _definirProxima(PerguntasData.web);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(idsProgramacao, 1);
+        return _definirProxima(PerguntasData.cCpp);
+      case RespostaEnum.nao:
+        alterarPontuacao(idsProgramacao, -2);
+        alterarPontuacao(idsNaoProgramacao, 1);
+        return _definirProxima(PerguntasData.agil);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(idsProgramacao, -1);
+        return _definirProxima(PerguntasData.requisitos);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  /// Willian (sites básicos/Django) e Guilherme (sites dinâmicos).
+  /// Web: Willian (Django/Python) e Guilherme (JS/UX/UI).
   PerguntaModel? _responderWeb(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_willian', 'prof_guilherme'], 2);
-      alterarPontuacao(['prof_fabiane', 'prof_speck'], -1);
-      return _definirProxima(PerguntasData.javascript);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_willian', 'prof_guilherme'], 1);
-      return _definirProxima(PerguntasData.bancoDados);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_willian', 'prof_guilherme'], -2);
-      alterarPontuacao(['prof_fabiane', 'prof_speck'], 1);
-      return _definirProxima(PerguntasData.mobile);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_willian', 'prof_guilherme'], -1);
-      return _definirProxima(PerguntasData.cCpp);
-    } else {
-      return _definirProxima(PerguntasData.oculos);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_willian', 'prof_guilherme'], 2);
+        alterarPontuacao(['prof_fabiane', 'prof_speck', 'prof_fabiano'], -1);
+        return _definirProxima(PerguntasData.javascript);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_willian', 'prof_guilherme'], 1);
+        return _definirProxima(PerguntasData.bancoDados);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_willian', 'prof_guilherme'], -2);
+        alterarPontuacao(['prof_fabiane', 'prof_speck'], 1);
+        return _definirProxima(PerguntasData.mobile);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_willian', 'prof_guilherme'], -1);
+        return _definirProxima(PerguntasData.cCpp);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  /// Guilherme ama JavaScript e UX/UI; Willian foca em Python.
+  /// JavaScript: Guilherme (ama JS/microsserviços); Willian usa Python.
   PerguntaModel? _responderJavascript(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_guilherme'], 2);
-      alterarPontuacao(['prof_willian'], -1);
-      return _definirProxima(PerguntasData.bancoDados);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_guilherme'], 1);
-      return _definirProxima(PerguntasData.bancoDados);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_guilherme'], -2);
-      alterarPontuacao(['prof_willian'], 1);
-      return _definirProxima(PerguntasData.mobile);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_guilherme'], -1);
-      return _definirProxima(PerguntasData.mobile);
-    } else {
-      return _definirProxima(PerguntasData.oculos);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_guilherme'], 2);
+        alterarPontuacao(['prof_willian', 'prof_fabiano'], -1);
+        return _definirProxima(PerguntasData.bancoDados);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_guilherme'], 1);
+        return _definirProxima(PerguntasData.bancoDados);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_guilherme'], -2);
+        alterarPontuacao(['prof_willian'], 1);
+        return _definirProxima(PerguntasData.mobile);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_guilherme'], -1);
+        return _definirProxima(PerguntasData.mobile);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  /// Willian leciona banco de dados.
+  /// Banco de dados: Willian (Python/Django/BD) e Fabiano.
   PerguntaModel? _responderBancoDados(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_willian'], 2);
-      alterarPontuacao(['prof_guilherme'], -1);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_willian'], 1);
-      return _definirProxima(PerguntasData.web);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_willian'], -2);
-      return _definirProxima(PerguntasData.mobile);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_willian'], -1);
-      return _definirProxima(PerguntasData.pooUml);
-    } else {
-      return _definirProxima(PerguntasData.cCpp);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_willian', 'prof_fabiano'], 2);
+        alterarPontuacao(['prof_guilherme'], -1);
+        return _definirProxima(PerguntasData.careca);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_willian', 'prof_fabiano'], 1);
+        return _definirProxima(PerguntasData.web);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_willian', 'prof_fabiano'], -2);
+        return _definirProxima(PerguntasData.mobile);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_willian', 'prof_fabiano'], -1);
+        return _definirProxima(PerguntasData.pooUml);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.cCpp);
     }
   }
 
-  /// Jefferson Speck ensina Dart e Flutter.
+  /// Mobile: Jefferson Speck (Dart e Flutter).
   PerguntaModel? _responderMobile(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_speck'], 2);
-      alterarPontuacao(['prof_willian', 'prof_guilherme'], -1);
-      return _definirProxima(PerguntasData.visualAlternativo);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_speck'], 1);
-      return _definirProxima(PerguntasData.visualAlternativo);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_speck'], -2);
-      return _definirProxima(PerguntasData.pooUml);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_speck'], -1);
-      return _definirProxima(PerguntasData.cCpp);
-    } else {
-      return _definirProxima(PerguntasData.oculos);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_speck'], 2);
+        alterarPontuacao(['prof_willian', 'prof_guilherme'], -1);
+        return _definirProxima(PerguntasData.visualAlternativo);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_speck'], 1);
+        return _definirProxima(PerguntasData.visualAlternativo);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_speck'], -2);
+        return _definirProxima(PerguntasData.pooUml);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_speck'], -1);
+        return _definirProxima(PerguntasData.cCpp);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  /// Fabiane (desktop) e Marcos (ponteiros) ensinam C/C++.
+  /// C/C++: Fabiane (lógica/desktop) e Marcos (ponteiros/redes).
   PerguntaModel? _responderCCpp(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_fabiane', 'prof_marcos'], 2);
-      alterarPontuacao(['prof_willian', 'prof_guilherme', 'prof_speck'], -1);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_fabiane', 'prof_marcos'], 1);
-      return _definirProxima(PerguntasData.estiloFormal);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_fabiane', 'prof_marcos'], -2);
-      return _definirProxima(PerguntasData.pooUml);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_fabiane', 'prof_marcos'], -1);
-      return _definirProxima(PerguntasData.ia);
-    } else {
-      return _definirProxima(PerguntasData.redesInfra);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_fabiane', 'prof_marcos'], 2);
+        alterarPontuacao(
+            ['prof_willian', 'prof_guilherme', 'prof_speck', 'prof_fabiano'],
+            -1);
+        return _definirProxima(PerguntasData.careca);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_fabiane', 'prof_marcos'], 1);
+        return _definirProxima(PerguntasData.estiloFormal);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_fabiane', 'prof_marcos'], -2);
+        return _definirProxima(PerguntasData.pooUml);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_fabiane', 'prof_marcos'], -1);
+        return _definirProxima(PerguntasData.ia);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.redesInfra);
     }
   }
 
-  /// Jhoni ensina Java, POO e UML.
+  /// POO/UML: Jhoni (Java). Fanboy de IA, especialmente Claude.
   PerguntaModel? _responderPooUml(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_jhoni'], 2);
-      return _definirProxima(PerguntasData.ia);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_jhoni'], 1);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_jhoni'], -2);
-      return _definirProxima(PerguntasData.ia);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_jhoni'], -1);
-      return _definirProxima(PerguntasData.versionamentoSeg);
-    } else {
-      return _definirProxima(PerguntasData.oculos);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_jhoni'], 2);
+        alterarPontuacao(['prof_fabiano'], -1);
+        return _definirProxima(PerguntasData.alto);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_jhoni'], 1);
+        return _definirProxima(PerguntasData.oculos);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_jhoni'], -2);
+        return _definirProxima(PerguntasData.ia);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_jhoni'], -1);
+        return _definirProxima(PerguntasData.versionamentoSeg);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  /// Verspegel é o professor de IA; Jhoni é entusiasta declarado.
+  /// IA: Verspegel (primário); Jhoni é fanboy declarado.
   PerguntaModel? _responderIa(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_verspegel'], 2);
-      alterarPontuacao(['prof_jhoni'], 1);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_verspegel'], 1);
-      return _definirProxima(PerguntasData.pooUml);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_verspegel'], -2);
-      return _definirProxima(PerguntasData.versionamentoSeg);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_verspegel'], -1);
-      return _definirProxima(PerguntasData.redesInfra);
-    } else {
-      return _definirProxima(PerguntasData.estiloFormal);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_verspegel'], 2);
+        alterarPontuacao(['prof_jhoni'], 1);
+        return _definirProxima(PerguntasData.alto);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_verspegel'], 1);
+        return _definirProxima(PerguntasData.pooUml);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_verspegel'], -2);
+        return _definirProxima(PerguntasData.versionamentoSeg);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_verspegel'], -1);
+        return _definirProxima(PerguntasData.redesInfra);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  /// Marcos (redes) e Vander (manutenção) atuam em infraestrutura.
+  /// Redes/infraestrutura: Marcos Guido (redes, C/C++ com ponteiros).
   PerguntaModel? _responderRedesInfra(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_marcos', 'prof_vander'], 2);
-      alterarPontuacao(['prof_fabiane', 'prof_willian', 'prof_guilherme'], -1);
-      return _definirProxima(PerguntasData.hardware);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_marcos', 'prof_vander'], 1);
-      return _definirProxima(PerguntasData.hardware);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_marcos', 'prof_vander'], -2);
-      return _definirProxima(PerguntasData.versionamentoSeg);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_marcos', 'prof_vander'], -1);
-      return _definirProxima(PerguntasData.oculos);
-    } else {
-      return _definirProxima(PerguntasData.cCpp);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_marcos'], 2);
+        alterarPontuacao(['prof_fabiane', 'prof_willian', 'prof_guilherme'],
+            -1);
+        return _definirProxima(PerguntasData.careca);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_marcos'], 1);
+        return _definirProxima(PerguntasData.hardware);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_marcos'], -2);
+        return _definirProxima(PerguntasData.versionamentoSeg);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_marcos'], -1);
+        return _definirProxima(PerguntasData.oculos);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.cCpp);
     }
   }
 
-  /// Vander trabalha com hardware, manutenção e Arduino.
+  /// Hardware/Arduino: Wander (manutenção de computadores).
   PerguntaModel? _responderHardware(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_vander'], 2);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_vander'], 1);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_vander'], -2);
-      return _definirProxima(PerguntasData.cCpp);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_vander'], -1);
-      return _definirProxima(PerguntasData.versionamentoSeg);
-    } else {
-      return _definirProxima(PerguntasData.estiloFormal);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_wander'], 2);
+        return _definirProxima(PerguntasData.alto);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_wander'], 1);
+        return _definirProxima(PerguntasData.oculos);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_wander'], -2);
+        return _definirProxima(PerguntasData.cCpp);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_wander'], -1);
+        return _definirProxima(PerguntasData.versionamentoSeg);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  /// Letícia ensina Git, virtualização e segurança.
+  /// Git, VMs e segurança: Letícia (estilosa, ama cachorros).
   PerguntaModel? _responderVersionamentoSeg(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_leticia'], 2);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_leticia'], 1);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_leticia'], -2);
-      return _definirProxima(PerguntasData.redesInfra);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_leticia'], -1);
-      return _definirProxima(PerguntasData.ia);
-    } else {
-      return _definirProxima(PerguntasData.estiloFormal);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_leticia'], 2);
+        return _definirProxima(PerguntasData.loiro);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_leticia'], 1);
+        return _definirProxima(PerguntasData.oculos);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_leticia'], -2);
+        return _definirProxima(PerguntasData.redesInfra);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_leticia'], -1);
+        return _definirProxima(PerguntasData.ia);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  /// Hiago e Andre ensinam Scrum/Kanban; Alan e Marcel não.
+  /// Ágil: Hiago (carismático, Prati) e André (testes/PI).
   PerguntaModel? _responderAgil(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_hiago', 'prof_andre'], 2);
-      alterarPontuacao(['prof_alan', 'prof_marcel'], -1);
-      return _definirProxima(PerguntasData.testes);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_hiago', 'prof_andre'], 1);
-      return _definirProxima(PerguntasData.projetoIntegrador);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_hiago', 'prof_andre'], -2);
-      alterarPontuacao(['prof_alan', 'prof_marcel'], 1);
-      return _definirProxima(PerguntasData.requisitos);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_hiago', 'prof_andre'], -1);
-      return _definirProxima(PerguntasData.empreendedorismo);
-    } else {
-      return _definirProxima(PerguntasData.oculos);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_hiago', 'prof_andre'], 2);
+        alterarPontuacao(['prof_alan', 'prof_marcel'], -1);
+        return _definirProxima(PerguntasData.testes);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_hiago', 'prof_andre'], 1);
+        return _definirProxima(PerguntasData.projetoIntegrador);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_hiago', 'prof_andre'], -2);
+        alterarPontuacao(['prof_alan', 'prof_marcel'], 1);
+        return _definirProxima(PerguntasData.requisitos);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_hiago', 'prof_andre'], -1);
+        return _definirProxima(PerguntasData.empreendedorismo);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  /// Andre ama testes (Jira, Trello); separa Andre de Hiago.
+  /// Testes: André (Jira, Trello, churrasco, cerveja artesanal).
   PerguntaModel? _responderTestes(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_andre'], 2);
-      alterarPontuacao(['prof_hiago'], -1);
-      return _definirProxima(PerguntasData.projetoIntegrador);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_andre'], 1);
-      return _definirProxima(PerguntasData.projetoIntegrador);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_andre'], -2);
-      alterarPontuacao(['prof_hiago'], 1);
-      return _definirProxima(PerguntasData.estiloFormal);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_andre'], -1);
-      return _definirProxima(PerguntasData.oculos);
-    } else {
-      return _definirProxima(PerguntasData.requisitos);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_andre'], 2);
+        alterarPontuacao(['prof_hiago'], -1);
+        return _definirProxima(PerguntasData.projetoIntegrador);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_andre'], 1);
+        return _definirProxima(PerguntasData.projetoIntegrador);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_andre'], -2);
+        alterarPontuacao(['prof_hiago'], 1);
+        return _definirProxima(PerguntasData.alto);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_andre'], -1);
+        return _definirProxima(PerguntasData.oculos);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.requisitos);
     }
   }
 
-  /// Alan é o professor de Engenharia de Requisitos.
+  /// Requisitos: Alan (sério, alto, usa óculos).
   PerguntaModel? _responderRequisitos(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_alan'], 2);
-      alterarPontuacao(['prof_hiago', 'prof_andre'], -1);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_alan'], 1);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_alan'], -2);
-      return _definirProxima(PerguntasData.empreendedorismo);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_alan'], -1);
-      return _definirProxima(PerguntasData.agil);
-    } else {
-      return _definirProxima(PerguntasData.estiloFormal);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_alan'], 2);
+        alterarPontuacao(['prof_hiago', 'prof_andre'], -1);
+        return _definirProxima(PerguntasData.oculos);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_alan'], 1);
+        return _definirProxima(PerguntasData.oculos);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_alan'], -2);
+        return _definirProxima(PerguntasData.empreendedorismo);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_alan'], -1);
+        return _definirProxima(PerguntasData.agil);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  /// Marcel leciona empreendedorismo (formato Shark Tank).
+  /// Empreendedorismo: Marcel (Shark Tank, músico, motos custom).
   PerguntaModel? _responderEmpreendedorismo(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_marcel'], 2);
-      return _definirProxima(PerguntasData.ingles);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_marcel'], 1);
-      return _definirProxima(PerguntasData.ingles);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_marcel'], -2);
-      return _definirProxima(PerguntasData.projetoIntegrador);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_marcel'], -1);
-      return _definirProxima(PerguntasData.agil);
-    } else {
-      return _definirProxima(PerguntasData.oculos);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_marcel'], 2);
+        return _definirProxima(PerguntasData.ingles);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_marcel'], 1);
+        return _definirProxima(PerguntasData.ingles);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_marcel'], -2);
+        return _definirProxima(PerguntasData.projetoIntegrador);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_marcel'], -1);
+        return _definirProxima(PerguntasData.agil);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  /// Marcel ministra as aulas em inglês.
+  /// Inglês: Marcel (único que ministra as aulas em inglês).
   PerguntaModel? _responderIngles(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_marcel'], 2);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_marcel'], 1);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_marcel'], -2);
-      return _definirProxima(PerguntasData.projetoIntegrador);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_marcel'], -1);
-      return _definirProxima(PerguntasData.agil);
-    } else {
-      return _definirProxima(PerguntasData.estiloFormal);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_marcel'], 2);
+        return _definirProxima(PerguntasData.oculos);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_marcel'], 1);
+        return _definirProxima(PerguntasData.oculos);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_marcel'], -2);
+        return _definirProxima(PerguntasData.projetoIntegrador);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_marcel'], -1);
+        return _definirProxima(PerguntasData.agil);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  /// Hiago, Andre e Renato orientam o Projeto Integrador.
+  /// PI: Hiago, André e Renato. Renato: alto, formal, veio da Prati.
   PerguntaModel? _responderProjetoIntegrador(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], 2);
-      return _definirProxima(PerguntasData.estiloFormal);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], 1);
-      return _definirProxima(PerguntasData.agil);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], -2);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], -1);
-      return _definirProxima(PerguntasData.requisitos);
-    } else {
-      return _definirProxima(PerguntasData.estiloFormal);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], 2);
+        return _definirProxima(PerguntasData.estiloFormal);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], 1);
+        return _definirProxima(PerguntasData.agil);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], -2);
+        return _definirProxima(PerguntasData.oculos);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_hiago', 'prof_andre', 'prof_renato'], -1);
+        return _definirProxima(PerguntasData.requisitos);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  /// Alan, Fabiane, Vander e Letícia usam óculos.
+  /// Óculos: Alan, Fabiane, Wander, Letícia.
+  /// Após sim → loiro (diferencia Fabiane/Letícia de Alan/Wander).
+  /// Após não → careca (diferencia Willian/Marcos dos demais sem óculos).
   PerguntaModel? _responderOculos(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(idsUsamOculos, 2);
-      alterarPontuacao(idsSemOculos, -1);
-      return _definirProxima(PerguntasData.estiloFormal);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(idsUsamOculos, 1);
-      return _definirProxima(PerguntasData.estiloFormal);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(idsUsamOculos, -2);
-      alterarPontuacao(idsSemOculos, 1);
-      return _definirProxima(PerguntasData.visualAlternativo);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(idsUsamOculos, -1);
-      return _definirProxima(PerguntasData.estiloFormal);
-    } else {
-      return _definirProxima(PerguntasData.estiloFormal);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(idsUsamOculos, 2);
+        alterarPontuacao(idsSemOculos, -1);
+        return _definirProxima(PerguntasData.loiro);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(idsUsamOculos, 1);
+        return _definirProxima(PerguntasData.loiro);
+      case RespostaEnum.nao:
+        alterarPontuacao(idsUsamOculos, -2);
+        alterarPontuacao(idsSemOculos, 1);
+        return _definirProxima(PerguntasData.careca);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(idsUsamOculos, -1);
+        return _definirProxima(PerguntasData.estiloFormal);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
-  /// Fabiane e Renato têm estilo formal; a maioria é casual.
+  /// Formal: Fabiane e Renato.
   PerguntaModel? _responderEstiloFormal(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(idsEstiloFormal, 2);
-      alterarPontuacao(idsEstiloCasual, -1);
-      return _definirProxima(PerguntasData.cCpp);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(idsEstiloFormal, 1);
-      return _definirProxima(PerguntasData.projetoIntegrador);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(idsEstiloFormal, -2);
-      alterarPontuacao(idsEstiloCasual, 1);
-      return _definirProxima(PerguntasData.visualAlternativo);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(idsEstiloFormal, -1);
-      return _definirProxima(PerguntasData.agil);
-    } else {
-      return _definirProxima(PerguntasData.oculos);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(idsEstiloFormal, 2);
+        alterarPontuacao(idsEstiloCasual, -1);
+        return _definirProxima(PerguntasData.cCpp);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(idsEstiloFormal, 1);
+        return _definirProxima(PerguntasData.projetoIntegrador);
+      case RespostaEnum.nao:
+        alterarPontuacao(idsEstiloFormal, -2);
+        alterarPontuacao(idsEstiloCasual, 1);
+        return _definirProxima(PerguntasData.visualAlternativo);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(idsEstiloFormal, -1);
+        return _definirProxima(PerguntasData.agil);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.oculos);
     }
   }
 
-  /// Jefferson Speck tem cabelo colorido e tatuagens.
+  /// Visual alternativo: Speck (cabelo colorido + tatuagens).
   PerguntaModel? _responderVisualAlternativo(RespostaEnum resposta) {
-    if (resposta == RespostaEnum.sim) {
-      alterarPontuacao(['prof_speck'], 2);
-      alterarPontuacao(idsEstiloFormal, -1);
-      return _definirProxima(PerguntasData.mobile);
-    } else if (resposta == RespostaEnum.provavelmenteSim) {
-      alterarPontuacao(['prof_speck'], 1);
-      return _definirProxima(PerguntasData.mobile);
-    } else if (resposta == RespostaEnum.nao) {
-      alterarPontuacao(['prof_speck'], -2);
-      return _definirProxima(PerguntasData.oculos);
-    } else if (resposta == RespostaEnum.provavelmenteNao) {
-      alterarPontuacao(['prof_speck'], -1);
-      return _definirProxima(PerguntasData.oculos);
-    } else {
-      return _definirProxima(PerguntasData.estiloFormal);
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_speck'], 2);
+        alterarPontuacao(idsEstiloFormal, -1);
+        return _definirProxima(PerguntasData.mobile);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_speck'], 1);
+        return _definirProxima(PerguntasData.mobile);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_speck'], -2);
+        return _definirProxima(PerguntasData.alto);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_speck'], -1);
+        return _definirProxima(PerguntasData.oculos);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.estiloFormal);
+    }
+  }
+
+  /// Careca: Willian e Marcos Guido.
+  /// Sim → redesInfra para separar Marcos (redes) de Willian (web/BD).
+  /// Não → visualAlternativo (Speck pode estar no grupo sem óculos + não careca).
+  PerguntaModel? _responderCareca(RespostaEnum resposta) {
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(idsCareca, 2);
+        alterarPontuacao(idsNaoCareca, -1);
+        return _definirProxima(PerguntasData.redesInfra);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(idsCareca, 1);
+        return _definirProxima(PerguntasData.redesInfra);
+      case RespostaEnum.nao:
+        alterarPontuacao(idsCareca, -2);
+        alterarPontuacao(idsNaoCareca, 1);
+        return _definirProxima(PerguntasData.visualAlternativo);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(idsCareca, -1);
+        return _definirProxima(PerguntasData.visualAlternativo);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.estiloFormal);
+    }
+  }
+
+  /// Alto: Hiago, Alan, Wander, André, Renato.
+  /// Baixo: Jhoni e Verspegel.
+  PerguntaModel? _responderAlto(RespostaEnum resposta) {
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(idsAltos, 2);
+        alterarPontuacao(idsBaixos, -1);
+        return _definirProxima(PerguntasData.agil);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(idsAltos, 1);
+        return _definirProxima(PerguntasData.projetoIntegrador);
+      case RespostaEnum.nao:
+        alterarPontuacao(idsAltos, -1);
+        alterarPontuacao(idsBaixos, 2);
+        return _definirProxima(PerguntasData.ia);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(idsBaixos, 1);
+        return _definirProxima(PerguntasData.pooUml);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.oculos);
+    }
+  }
+
+  /// Loiro: Fabiane (formal, óculos) e Letícia (informal, óculos).
+  /// Sim → estiloFormal para separar as duas.
+  /// Não → alto (para Alan/Wander que têm óculos mas não são loiros).
+  PerguntaModel? _responderLoiro(RespostaEnum resposta) {
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(idsCabeloLoiro, 2);
+        alterarPontuacao(['prof_alan', 'prof_wander'], -1);
+        return _definirProxima(PerguntasData.estiloFormal);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(idsCabeloLoiro, 1);
+        return _definirProxima(PerguntasData.estiloFormal);
+      case RespostaEnum.nao:
+        alterarPontuacao(idsCabeloLoiro, -2);
+        alterarPontuacao(['prof_alan', 'prof_wander'], 1);
+        return _definirProxima(PerguntasData.alto);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(idsCabeloLoiro, -1);
+        return _definirProxima(PerguntasData.alto);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.estiloFormal);
     }
   }
 
@@ -587,7 +730,6 @@ class GameController {
   // Funções auxiliares
   // ------------------------------------------------------------
 
-  /// Soma [pontos] (positivo ou negativo) aos professores com os [ids].
   void alterarPontuacao(List<String> ids, double pontos) {
     for (final professor in professores) {
       if (ids.contains(professor.id)) {
@@ -596,21 +738,15 @@ class GameController {
     }
   }
 
-  /// Garante que a próxima pergunta não se repita.
-  ///
-  /// Se a pergunta desejada já foi respondida, usa o fallback.
   PerguntaModel? _definirProxima(PerguntaModel proxima) {
     if (perguntasRespondidas.contains(proxima.id)) {
       return _proximaPerguntaFallback();
-    } else {
-      return proxima;
     }
+    return proxima;
   }
 
-  /// Retorna a primeira pergunta neutra ainda não respondida,
-  /// ou `null` quando não há mais perguntas úteis (fim de jogo).
   PerguntaModel? _proximaPerguntaFallback() {
-    for (final pergunta in PerguntasData.todas) {
+    for (final pergunta in _perguntasEmbaralhadas) {
       if (!perguntasRespondidas.contains(pergunta.id)) {
         return pergunta;
       }
@@ -622,38 +758,43 @@ class GameController {
   // Resultado
   // ------------------------------------------------------------
 
-  /// Professor com a maior pontuação.
+  /// Probabilidade de cada professor via softmax.
+  Map<String, double> calcularProbabilidades() {
+    if (professores.isEmpty) return {};
+    final maxPontos = professores.map((p) => p.pontos).reduce(max);
+    final expScores = {
+      for (final p in professores)
+        p.id: exp((p.pontos - maxPontos) * temperatura),
+    };
+    final somaExp = expScores.values.reduce((a, b) => a + b);
+    return {
+      for (final entry in expScores.entries) entry.key: entry.value / somaExp,
+    };
+  }
+
+  /// Probabilidade em % do líder atual (usado na barra da tela de perguntas).
+  double get confiancaAtual {
+    if (quantidadePerguntasRespondidas == 0) {
+      return 1.0 / professores.length * 100;
+    }
+    final probs = calcularProbabilidades();
+    return probs.values.reduce(max) * 100;
+  }
+
   ProfessorModel calcularResultado() {
-    final ordenados = [...professores];
-    ordenados.sort((a, b) => b.pontos.compareTo(a.pontos));
+    final ordenados = [...professores]
+      ..sort((a, b) => b.pontos.compareTo(a.pontos));
     return ordenados.first;
   }
 
-  /// Três professores com as maiores pontuações.
   List<ProfessorModel> calcularTopTres() {
-    final ordenados = [...professores];
-    ordenados.sort((a, b) => b.pontos.compareTo(a.pontos));
+    final ordenados = [...professores]
+      ..sort((a, b) => b.pontos.compareTo(a.pontos));
     return ordenados.take(3).toList();
   }
 
-  /// Confiança baseada na vantagem do 1º colocado sobre o 2º.
   double calcularConfianca() {
-    final ordenados = [...professores];
-    ordenados.sort((a, b) => b.pontos.compareTo(a.pontos));
-
-    if (ordenados.length < 2) {
-      return 100;
-    }
-
-    final diferenca = ordenados[0].pontos - ordenados[1].pontos;
-    final confianca = 50 + (diferenca * 8);
-
-    if (confianca < 0) {
-      return 0;
-    } else if (confianca > 100) {
-      return 100;
-    } else {
-      return confianca;
-    }
+    final probs = calcularProbabilidades();
+    return (probs[calcularResultado().id] ?? 0) * 100;
   }
 }

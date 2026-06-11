@@ -150,12 +150,33 @@ class PerguntasData {
     categoria: 'aparencia',
   );
 
+  static const careca = PerguntaModel(
+    id: 'careca',
+    texto: 'Esse professor tem o cabelo raspado ou é careca?',
+    categoria: 'aparencia',
+  );
+
+  static const alto = PerguntaModel(
+    id: 'alto',
+    texto: 'Esse professor é visivelmente mais alto do que a maioria dos alunos?',
+    categoria: 'aparencia',
+  );
+
+  static const loiro = PerguntaModel(
+    id: 'loiro',
+    texto: 'Esse professor tem o cabelo loiro?',
+    categoria: 'aparencia',
+  );
+
   /// Lista completa, em ordem de prioridade para o fallback
   /// (perguntas mais abrangentes primeiro).
   static const List<PerguntaModel> todas = [
     programacao,
     agil,
     oculos,
+    careca,
+    loiro,
+    alto,
     estiloFormal,
     web,
     cCpp,

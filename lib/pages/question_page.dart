@@ -24,22 +24,17 @@ class _QuestionPageState extends State<QuestionPage> {
     final proximaPergunta = controller.responder(resposta);
 
     if (proximaPergunta == null) {
-      // Fim de jogo: navega para o resultado.
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => ResultPage(controller: controller)),
       );
     } else {
-      // Continua o jogo com a nova pergunta.
       setState(() {});
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final numeroPergunta = controller.quantidadePerguntasRespondidas + 1;
-    const total = GameController.limitePerguntas;
-
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(gradient: AppColors.gradient),
@@ -51,47 +46,6 @@ class _QuestionPageState extends State<QuestionPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   children: [
-                    const SizedBox(height: 12),
-                    // Contador + barra de progresso
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          child: Text(
-                            'Pergunta $numeroPergunta de $total',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: LinearProgressIndicator(
-                              value:
-                                  controller.quantidadePerguntasRespondidas /
-                                  total,
-                              minHeight: 8,
-                              backgroundColor: Colors.white.withValues(
-                                alpha: 0.2,
-                              ),
-                              valueColor: const AlwaysStoppedAnimation(
-                                AppColors.gold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                     const SizedBox(height: 16),
                     const CharacterAvatar(height: 210),
                     const SizedBox(height: 12),
