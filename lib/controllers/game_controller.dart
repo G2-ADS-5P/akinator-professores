@@ -17,9 +17,9 @@ import '../models/resposta_enum.dart';
 ///   Provavelmente não −1 / Não −2
 ///   (contrapesos de ±1 para grupos opostos onde aplicável)
 class GameController {
-  static const int _minimoPerguntas = 3;
-  static const double limiarProbabilidade = 0.30;
-  static const double temperatura = 0.35;
+  static const int _minimoPerguntas = 5;
+  static const double limiarProbabilidade = 0.55;
+  static const double temperatura = 0.40;
 
   // ------------------------------------------------------------
   // Grupos de calibração — baseados nos dados oficiais dos profs
@@ -113,6 +113,15 @@ class GameController {
     'prof_leticia',
     'prof_speck',
   ];
+
+  /// Professores reconhecidamente animados e enérgicos em aula.
+  static const idsAnimadoAula = ['prof_hiago'];
+
+  /// Professores que não têm perfil de coordenador do curso.
+  static const idsNaoAnimadoAula = ['prof_renato', 'prof_marcel'];
+
+  /// Professores que exercem ou exerceram a coordenação do curso.
+  static const idsCoordenador = ['prof_fabiane'];
 
   final List<ProfessorModel> professores = criarProfessores();
   final List<String> perguntasRespondidas = [];
@@ -219,6 +228,12 @@ class GameController {
         return _responderAlto(resposta);
       case 'loiro':
         return _responderLoiro(resposta);
+      case 'animado_aula':
+        return _responderAnimadoAula(resposta);
+      case 'coordenador':
+        return _responderCoordenador(resposta);
+      case 'leciona_ia':
+        return _responderLecionaIa(resposta);
       default:
         return _proximaPerguntaFallback();
     }
@@ -386,7 +401,7 @@ class GameController {
       case RespostaEnum.sim:
         alterarPontuacao(['prof_verspegel'], 2);
         alterarPontuacao(['prof_jhoni'], 1);
-        return _definirProxima(PerguntasData.alto);
+        return _definirProxima(PerguntasData.lecionaIa);
       case RespostaEnum.provavelmenteSim:
         alterarPontuacao(['prof_verspegel'], 1);
         return _definirProxima(PerguntasData.pooUml);
@@ -498,7 +513,7 @@ class GameController {
       case RespostaEnum.nao:
         alterarPontuacao(['prof_andre'], -2);
         alterarPontuacao(['prof_hiago'], 1);
-        return _definirProxima(PerguntasData.alto);
+        return _definirProxima(PerguntasData.animadoAula);
       case RespostaEnum.provavelmenteNao:
         alterarPontuacao(['prof_andre'], -1);
         return _definirProxima(PerguntasData.oculos);
@@ -618,7 +633,7 @@ class GameController {
       case RespostaEnum.sim:
         alterarPontuacao(idsEstiloFormal, 2);
         alterarPontuacao(idsEstiloCasual, -1);
-        return _definirProxima(PerguntasData.cCpp);
+        return _definirProxima(PerguntasData.coordenador);
       case RespostaEnum.provavelmenteSim:
         alterarPontuacao(idsEstiloFormal, 1);
         return _definirProxima(PerguntasData.projetoIntegrador);
@@ -723,6 +738,72 @@ class GameController {
         return _definirProxima(PerguntasData.alto);
       case RespostaEnum.naoSei:
         return _definirProxima(PerguntasData.estiloFormal);
+    }
+  }
+
+  /// Animado em aula: Hiago (charismatic/energetic). Renato e Marcel menos.
+  PerguntaModel? _responderAnimadoAula(RespostaEnum resposta) {
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(idsAnimadoAula, 2);
+        alterarPontuacao(idsNaoAnimadoAula, -1);
+        return _definirProxima(PerguntasData.projetoIntegrador);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(idsAnimadoAula, 1);
+        return _definirProxima(PerguntasData.projetoIntegrador);
+      case RespostaEnum.nao:
+        alterarPontuacao(idsAnimadoAula, -2);
+        alterarPontuacao(idsNaoAnimadoAula, 1);
+        return _definirProxima(PerguntasData.estiloFormal);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(idsAnimadoAula, -1);
+        return _definirProxima(PerguntasData.estiloFormal);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.oculos);
+    }
+  }
+
+  /// Coordenador: Fabiane.
+  PerguntaModel? _responderCoordenador(RespostaEnum resposta) {
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(idsCoordenador, 2);
+        alterarPontuacao(['prof_renato'], -1);
+        return _definirProxima(PerguntasData.cCpp);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(idsCoordenador, 1);
+        return _definirProxima(PerguntasData.cCpp);
+      case RespostaEnum.nao:
+        alterarPontuacao(idsCoordenador, -2);
+        alterarPontuacao(['prof_renato'], 1);
+        return _definirProxima(PerguntasData.projetoIntegrador);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(idsCoordenador, -1);
+        return _definirProxima(PerguntasData.projetoIntegrador);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.cCpp);
+    }
+  }
+
+  /// Leciona IA: Verspegel (primário). Jhoni é fanboy mas não é o responsável.
+  PerguntaModel? _responderLecionaIa(RespostaEnum resposta) {
+    switch (resposta) {
+      case RespostaEnum.sim:
+        alterarPontuacao(['prof_verspegel'], 2);
+        alterarPontuacao(['prof_jhoni'], -1);
+        return _definirProxima(PerguntasData.alto);
+      case RespostaEnum.provavelmenteSim:
+        alterarPontuacao(['prof_verspegel'], 1);
+        return _definirProxima(PerguntasData.alto);
+      case RespostaEnum.nao:
+        alterarPontuacao(['prof_verspegel'], -2);
+        alterarPontuacao(['prof_jhoni'], 1);
+        return _definirProxima(PerguntasData.pooUml);
+      case RespostaEnum.provavelmenteNao:
+        alterarPontuacao(['prof_verspegel'], -1);
+        return _definirProxima(PerguntasData.pooUml);
+      case RespostaEnum.naoSei:
+        return _definirProxima(PerguntasData.alto);
     }
   }
 

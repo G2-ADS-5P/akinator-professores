@@ -156,6 +156,26 @@ class PerguntasData {
     categoria: 'aparencia',
   );
 
+  static const animadoAula = PerguntaModel(
+    id: 'animado_aula',
+    texto:
+        'Esse professor costuma ser bastante animado e enérgico durante as aulas?',
+    categoria: 'metodologia',
+  );
+
+  static const coordenador = PerguntaModel(
+    id: 'coordenador',
+    texto: 'Esse professor é coordenador do curso?',
+    categoria: 'metodologia',
+  );
+
+  static const lecionaIa = PerguntaModel(
+    id: 'leciona_ia',
+    texto:
+        'Esse professor é o responsável pela disciplina de Inteligência Artificial ou Tecnologias Emergentes?',
+    categoria: 'area',
+  );
+
   static const alto = PerguntaModel(
     id: 'alto',
     texto: 'Esse professor é visivelmente mais alto do que a maioria dos alunos?',
@@ -194,5 +214,8 @@ class PerguntasData {
     empreendedorismo,
     ingles,
     visualAlternativo,
+    animadoAula,
+    coordenador,
+    lecionaIa,
   ];
 }
