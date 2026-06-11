@@ -78,5 +78,3 @@ Após qualquer ajuste, rodar `flutter analyze` e `flutter test`.
 - A partida termina após 12 perguntas (ou quando acabam as perguntas úteis).
 - O resultado mostra o palpite, a confiança e o top 3.
 
-Documentação completa: `AGENTS.md`, `CONTEXT.md`, `DEVELOPMENT_GUIDE.md`,
-`GAME_LOGIC.md`, `PROMPTS_CODEAGENTS.md` e `README_IDEACAO.md`.
